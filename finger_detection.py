@@ -1,32 +1,35 @@
 import cv2
 import sys
 import numpy as np
+import mediapipe as mp
+
+mp_drawing= mp.solutions.drawing_utils
+mp_hands=mp.solutions.hands
 
 cap = cv2.VideoCapture(0)
-cap.set(3,640)
-cap.set(4,480)
-faceCascade=cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
-while True:
-   
-    ret, frame = cap.read()
-    imgGrey=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-    faces=faceCascade.detectMultiScale(imgGrey,1.1,4)
-    #Hand masking
-    hsvim = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    lower = np.array([0, 48, 80], dtype = "uint8")
-    upper = np.array([20, 255, 255], dtype = "uint8")
-    skinRegionHSV = cv2.inRange(hsvim, lower, upper)
-    blurred = cv2.blur(skinRegionHSV, (2,2))
-    ret,thresh = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY)
-    cv2.imshow("thresh", thresh)
+with mp_hands.Hands(
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5) as hands:
 
-    for (x,y,w,h) in faces:
-        cv2.rectangle(frame,(x,y),(x+h,y+w),(255,0,1),2)
-    cv2.imshow("Horizontal",frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    while cap.isOpened():
+        success, image=cap.read()
+        image=cv2.cvtColor(cv2.flip(image,1),cv2.COLOR_BGR2RGB)
+        image.flags.writeable=False
+        results=hands.process(image)
+
+        image.flags.writeable=True
+        image=cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                mp_drawing.draw_landmarks(
+                    image, hand_landmarks,mp_hands.HAND_CONNECTIONS)
+        cv2.imshow("HANDS DETECTION",image)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 # When everything is done, release the capture
 cap.release()
 cv2.destroyAllWindows()
+        
+
